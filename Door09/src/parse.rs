@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use super::matrix::Matrix;
+
 pub fn get_next_line<'a, 'b>(cursor : &'a mut dyn Iterator<Item = &str>) -> Result<&'a str,&'b str> {
     match cursor.next() {
         Some(str) => Ok(str),
@@ -50,13 +52,14 @@ pub fn parse_all<'b, Type>(cursor : & mut dyn Iterator<Item = &str>, f : fn(& mu
     return Ok(collection);
 }
 
-pub fn parse_matrix<'b, Type>(cursor : & mut dyn Iterator<Item = &str>, f : fn(& mut dyn Iterator<Item = &str>) -> Result<Vec<Type>, &'b str>) -> Result<Vec<Vec<Type>>, &'b str> {
+pub fn parse_matrix<'b, Type>(cursor : & mut dyn Iterator<Item = &str>, f : fn(& mut dyn Iterator<Item = &str>) -> Result<Vec<Type>, &'b str>) -> Result<Matrix<Type>, &'b str> {
     let first_line = f(cursor)?;
     let size = first_line.len();
     let mut rest = parse_all(cursor, f)?;
     if !rest.iter().all(|entry| entry.len() == size) {
         return Err("Matrix Dimensions are malformed");
     }
-    rest.insert(0, first_line);
-    return Ok(rest);
+    let mut result = Matrix::new_from_row(first_line);
+    result.append_all(&mut rest);
+    return Ok(result);
 }

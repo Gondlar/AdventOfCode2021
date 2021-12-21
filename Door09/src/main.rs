@@ -1,10 +1,13 @@
 use std::env;
 use std::fs;
 
+mod matrix;
 mod parse;
 mod top;
 
-fn parse_matrix<'b>(cursor : & mut dyn Iterator<Item = &str>) -> Result<Vec<Vec<u32>>, &'b str> {
+use matrix::Matrix;
+
+fn parse_matrix<'b>(cursor : & mut dyn Iterator<Item = &str>) -> Result<Matrix<u32>, &'b str> {
     parse::parse_matrix(cursor, |cursor| parse::parse_characters(cursor, |c| {
         match c.to_digit(10) {
             Some(n) => Ok(n),
@@ -13,24 +16,15 @@ fn parse_matrix<'b>(cursor : & mut dyn Iterator<Item = &str>) -> Result<Vec<Vec<
     }))
 }
 
-fn find_low_points(heightmap: &Vec<Vec<u32>>) -> Vec<(usize,usize)> {
-    let width = heightmap.len() - 1;
-    let height = heightmap[0].len() - 1;
+fn find_low_points(heightmap: &Matrix<u32>) -> Vec<(usize,usize)> {
     let mut low_points = vec!();
-    for x in 0..=width {
-        for y in 0..=height {
-            let val = heightmap[x][y];
-            if y > 0 && val >= heightmap[x][y-1] {
-                continue;
-            }
-            if y < height && val >= heightmap[x][y+1] {
-                continue;
-            }
-            if x > 0 && val >= heightmap[x-1][y] {
-                continue;
-            }
-            if x < width && val >= heightmap[x+1][y] {
-                continue;
+    for x in 0..heightmap.get_width() {
+        'fields: for y in 0..heightmap.get_height() {
+            let &val = heightmap.get(x, y);
+            for &neighbor in heightmap.get_all(&mut heightmap.neighbor_coords(x, y)) {
+                if neighbor <= val {
+                    continue 'fields
+                }
             }
             low_points.push((x, y));
         }
@@ -43,31 +37,22 @@ fn risk_level(height: u32) -> u32 { height +1 }
 fn do_work<'b>(cursor : & mut dyn Iterator<Item = &str>) -> Result<(), &'b str> {
     let heightmap = parse_matrix(cursor)?;
     let low_points = find_low_points(&heightmap);
-    println!("Part 1: {}", low_points.iter().map(|(x,y)| risk_level(heightmap[*x][*y])).sum::<u32>());
-    let mut visited = vec![vec![false;heightmap[0].len()];heightmap.len()];
+    println!("Part 1: {}", low_points.iter().map(|(x,y)| risk_level(*heightmap.get(*x, *y))).sum::<u32>());
+    let mut visited = Matrix::<bool>::new(heightmap.get_width(), heightmap.get_height());
     let mut stack :Vec<(usize,usize)> = vec![];
     let mut biggest_basins = top::TopK::new(3);
-    for point in &low_points {
-        stack.push(*point);
+    for point in low_points {
+        stack.push(point);
         let mut size = 0;
         while !stack.is_empty() {
             let (x, y) = stack.pop().unwrap();
-            if visited[x][y] || heightmap[x][y] == 9 {
+            if *visited.get(x, y) || *heightmap.get(x, y) == 9 {
                 continue;
             }
             size += 1;
-            visited[x][y] = true;
-            if x > 0 {
-                stack.push((x-1,y));
-            }
-            if x < heightmap.len()-1 {
-                stack.push((x+1,y));
-            }
-            if y > 0 {
-                stack.push((x,y-1));
-            }
-            if y < heightmap[0].len()-1 {
-                stack.push((x,y+1));
+            visited.set(x, y,true);
+            for coords in heightmap.neighbor_coords(x, y) {
+                stack.push(coords);
             }
         }
         biggest_basins.push(size);
