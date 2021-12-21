@@ -54,16 +54,26 @@ impl<'a, A> Matrix<A>
         Box::new(self.data.iter())
     }
 
+    pub fn coords_iter(& self) -> Box<dyn std::iter::Iterator<Item = (usize, usize)>> {
+        let height = self.get_height();
+        let width = self.get_width();
+        Box::new(
+            (0..width).flat_map(move |x| (0..height).map(move |y| (x,y)))
+        )
+    }
+
     pub fn get_all(&'a self, iter: &'a mut dyn Iterator<Item = (usize, usize)>) -> Box<dyn Iterator<Item = &A>+'a> {
         Box::new(iter.map(|(x,y)| { self.get(x,y)} ))
     }
     
-    pub fn relativ_coords(&'a self, x: usize, y: usize, neighbors: &'a Vec<(isize, isize)>) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+    pub fn relativ_coords(&self, x: usize, y: usize, neighbors: &'a Vec<(isize, isize)>) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+        let width = self.get_width();
+        let height = self.get_height();
         Box::new(neighbors.iter()
                           .filter(move |(rel_x, rel_y)| {
                             let neighbor_x = (x as isize)+*rel_x;
                             let neighbor_y = (y as isize)+*rel_y;
-                            return !(neighbor_x < 0 || neighbor_x >= self.width as isize || neighbor_y < 0 || neighbor_y >= self.height as isize);
+                            return !(neighbor_x < 0 || neighbor_x >= width as isize || neighbor_y < 0 || neighbor_y >= height as isize);
                           })
                           .map(move |(rel_x, rel_y)| {
                                 let neighbor_x = ((x as isize)+*rel_x) as usize;
@@ -72,12 +82,14 @@ impl<'a, A> Matrix<A>
                           }))
     }
 
-    fn relativ_coords_arr(&'a self, x: usize, y: usize, neighbors: &'a [(isize, isize)]) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+    fn relativ_coords_arr(&self, x: usize, y: usize, neighbors: &'a [(isize, isize)]) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+        let width = self.get_width();
+        let height = self.get_height();
         Box::new(neighbors.iter()
                           .filter(move |(rel_x, rel_y)| {
                             let neighbor_x = (x as isize)+*rel_x;
                             let neighbor_y = (y as isize)+*rel_y;
-                            return !(neighbor_x < 0 || neighbor_x >= self.width as isize || neighbor_y < 0 || neighbor_y >= self.height as isize);
+                            return !(neighbor_x < 0 || neighbor_x >= width as isize || neighbor_y < 0 || neighbor_y >= height as isize);
                           })
                           .map(move |(rel_x, rel_y)| {
                                 let neighbor_x = ((x as isize)+*rel_x) as usize;
@@ -86,12 +98,12 @@ impl<'a, A> Matrix<A>
                           }))
     }
 
-    pub fn neighbor_coords(&'a self, x: usize, y: usize) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+    pub fn neighbor_coords(&self, x: usize, y: usize) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
         static NEIGHBORS : [(isize,isize); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
         self.relativ_coords_arr(x, y, &NEIGHBORS)
     }
 
-    pub fn around_coords(&'a self, x: usize, y: usize) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+    pub fn around_coords(&self, x: usize, y: usize) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
         static AROUND : [(isize,isize); 9] = [(-1,  0), (0,  0), (1,  0),
                                               (-1, -1), (0, -1), (1, -1),
                                               (-1,  1), (0,  1), (1,  1)];
