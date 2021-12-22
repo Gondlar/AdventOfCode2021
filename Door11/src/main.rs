@@ -20,33 +20,30 @@ static MAX : u32 = 10;
 fn round(energylevel: &mut Matrix<u32>) -> u32 {
     let mut flashes = 0;
     // Step 1
-    for (x, y) in energylevel.coords_iter() {
-        let current = *energylevel.get(x, y);
-        energylevel.set(x, y, current+1);
+    for coords in energylevel.coords_iter() {
+        energylevel[coords] += 1;
     }
     // Step 2
     let mut will_flash = vec![];
-    for (x, y) in energylevel.coords_iter() {
-        if *energylevel.get(x, y) == MAX {
-            will_flash.push((x,y));
+    for coords in energylevel.coords_iter() {
+        if energylevel[coords] == MAX {
+            will_flash.push(coords);
         }
     }
     while !will_flash.is_empty() {
         let (x, y) = will_flash.pop().unwrap();
         flashes += 1;
-        for (nb_x, nb_y) in energylevel.around_coords(x, y) {
-            let val = *energylevel.get(nb_x, nb_y);
-            energylevel.set(nb_x, nb_y, val +1);
-            if val+1 == MAX { // i.e. it is now 9
-                will_flash.push((nb_x, nb_y));
+        for coords in energylevel.around_coords(x, y) {
+            energylevel[coords] += 1;
+            if energylevel[coords] == MAX { // i.e. it is now 9
+                will_flash.push(coords);
             }
         }
     }
     // Step 3
-    for (x, y) in energylevel.coords_iter() {
-        let current = *energylevel.get(x, y);
-        if current >= MAX {
-            energylevel.set(x, y, 0);
+    for coords in energylevel.coords_iter() {
+        if energylevel[coords] >= MAX {
+            energylevel[coords] = 0;
         }
     }
     return flashes;

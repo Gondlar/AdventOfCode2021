@@ -6,6 +6,9 @@ pub struct Matrix<A> {
     data: Vec<A>
 }
 
+pub type Coordinates = (usize, usize);
+pub type RelativeCoordinates = (isize, isize);
+
 impl<A> Matrix<A> {
     pub fn new_from_row(row: Vec<A>) -> Matrix<A> {
         return Matrix{width: row.len(), height: 1, data: row};
@@ -19,7 +22,7 @@ impl<A> Matrix<A> {
         assert!(x < self.width && y < self.height);
         y*self.width + x
     }
-    pub fn get(&self, x: usize, y: usize) -> &A {&self.data[self.calc_coordinates(x, y)] }
+    pub fn get(&self, x: usize, y: usize) -> &A { &self.data[self.calc_coordinates(x, y)] }
     pub fn set(&mut self , x: usize, y: usize, val: A) {
         let index = self.calc_coordinates(x,y);
         self.data[index] = val;
@@ -54,7 +57,7 @@ impl<'a, A> Matrix<A>
         Box::new(self.data.iter())
     }
 
-    pub fn coords_iter(& self) -> Box<dyn std::iter::Iterator<Item = (usize, usize)>> {
+    pub fn coords_iter(& self) -> Box<dyn std::iter::Iterator<Item = Coordinates>> {
         let height = self.get_height();
         let width = self.get_width();
         Box::new(
@@ -62,11 +65,11 @@ impl<'a, A> Matrix<A>
         )
     }
 
-    pub fn get_all(&'a self, iter: &'a mut dyn Iterator<Item = (usize, usize)>) -> Box<dyn Iterator<Item = &A>+'a> {
+    pub fn get_all(&'a self, iter: &'a mut dyn Iterator<Item = Coordinates>) -> Box<dyn Iterator<Item = &A>+'a> {
         Box::new(iter.map(|(x,y)| { self.get(x,y)} ))
     }
     
-    pub fn relativ_coords(&self, x: usize, y: usize, neighbors: &'a Vec<(isize, isize)>) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+    pub fn relativ_coords(&self, x: usize, y: usize, neighbors: &'a Vec<RelativeCoordinates>) -> Box<dyn Iterator<Item = Coordinates>+'a> {
         let width = self.get_width();
         let height = self.get_height();
         Box::new(neighbors.iter()
@@ -82,7 +85,7 @@ impl<'a, A> Matrix<A>
                           }))
     }
 
-    fn relativ_coords_arr(&self, x: usize, y: usize, neighbors: &'a [(isize, isize)]) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+    fn relativ_coords_arr(&self, x: usize, y: usize, neighbors: &'a [RelativeCoordinates]) -> Box<dyn Iterator<Item = Coordinates>+'a> {
         let width = self.get_width();
         let height = self.get_height();
         Box::new(neighbors.iter()
@@ -98,12 +101,12 @@ impl<'a, A> Matrix<A>
                           }))
     }
 
-    pub fn neighbor_coords(&self, x: usize, y: usize) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+    pub fn neighbor_coords(&self, x: usize, y: usize) -> Box<dyn Iterator<Item = Coordinates>+'a> {
         static NEIGHBORS : [(isize,isize); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
         self.relativ_coords_arr(x, y, &NEIGHBORS)
     }
 
-    pub fn around_coords(&self, x: usize, y: usize) -> Box<dyn Iterator<Item = (usize, usize)>+'a> {
+    pub fn around_coords(&self, x: usize, y: usize) -> Box<dyn Iterator<Item = Coordinates>+'a> {
         static AROUND : [(isize,isize); 9] = [(-1,  0), (0,  0), (1,  0),
                                               (-1, -1), (0, -1), (1, -1),
                                               (-1,  1), (0,  1), (1,  1)];
@@ -120,5 +123,22 @@ impl<A:Clone+Copy> Matrix<A> {
 impl<A:Default + Clone + Copy> Matrix<A> {
     pub fn new(width: usize, height: usize) -> Matrix<A> {
         return Matrix::new_with_init(width, height, &A::default());
+    }
+}
+
+impl<A> std::ops::Index<Coordinates> for Matrix<A> {
+    type Output = A;
+
+    fn index(&self, coords: Coordinates) -> &Self::Output {
+        let (x, y) = coords;
+        return self.get(x, y);
+    }
+}
+
+impl<A> std::ops::IndexMut<Coordinates> for Matrix<A> {
+    fn index_mut(&mut self, coords: Coordinates) -> &mut Self::Output {
+        let (x, y) = coords;
+        let index = self.calc_coordinates(x, y);
+        return &mut self.data[index];
     }
 }
