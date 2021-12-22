@@ -1,35 +1,24 @@
 use std::iter::Iterator;
 
 #[derive(Copy,Clone)]
-pub struct Coordinates((usize, usize));
-#[derive(Copy,Clone)]
-pub struct RelativeCoordinates((isize, isize));
+pub struct Coordinates<T = usize>((T, T));
 
-impl std::ops::Deref for Coordinates {
-    type Target = (usize, usize);
+type RelativeCoordinates = Coordinates<isize>;
 
-    fn deref(&self) -> &Self::Target { &self.0 }
-}
-
-impl std::ops::Deref for RelativeCoordinates {
-    type Target = (isize, isize);
+impl<T> std::ops::Deref for Coordinates<T> {
+    type Target = (T, T);
 
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
-impl Coordinates {
-    pub fn within(&self, l: usize, r: usize, b: usize, t: usize) -> bool {
+impl<T:PartialOrd+Copy> Coordinates<T> {
+    pub fn within(&self, l: T, r: T, b: T, t: T) -> bool {
         let (x,y) = **self;
         return x >= l && x <= r && y >= b && y <= t;
     }
 }
 
 impl RelativeCoordinates {
-    pub fn within(&self, l: isize, r: isize, b: isize, t: isize) -> bool {
-        let (x,y) = **self;
-        return x >= l && x <= r && y >= b && y <= t;
-    }
-
     pub fn to_coordinates(&self) -> Coordinates {
         let (x,y) = **self;
         assert!(x >= 0 && y >= 0);
@@ -46,7 +35,7 @@ impl std::ops::Add<RelativeCoordinates> for Coordinates {
         assert!(x <= isize::MAX as usize && y <= isize::MAX as usize);
         let sum_x = (x as isize)+rel_x;
         let sum_y = (y as isize)+rel_y;
-        return RelativeCoordinates((sum_x, sum_y));
+        return Coordinates((sum_x, sum_y));
     }
 }
 
@@ -136,14 +125,14 @@ impl<'a, A> Matrix<A>
 
     pub fn neighbor_coords(&self, origin: Coordinates) -> Box<dyn Iterator<Item = Coordinates>+'a> {
         static NEIGHBORS : [RelativeCoordinates; 4]
-            = [RelativeCoordinates((-1, 0)), RelativeCoordinates((1, 0)), RelativeCoordinates((0, -1)), RelativeCoordinates((0, 1))];
+            = [Coordinates((-1, 0)), Coordinates((1, 0)), Coordinates((0, -1)), Coordinates((0, 1))];
         self.relativ_coords_arr(origin, &NEIGHBORS)
     }
 
     pub fn around_coords(&self, origin: Coordinates) -> Box<dyn Iterator<Item = Coordinates>+'a> {
-        static AROUND : [RelativeCoordinates; 9] = [RelativeCoordinates((-1,  0)), RelativeCoordinates((0,  0)), RelativeCoordinates((1,  0)),
-                                                    RelativeCoordinates((-1, -1)), RelativeCoordinates((0, -1)), RelativeCoordinates((1, -1)),
-                                                    RelativeCoordinates((-1,  1)), RelativeCoordinates((0,  1)), RelativeCoordinates((1,  1))];
+        static AROUND : [RelativeCoordinates; 9] = [Coordinates((-1,  0)), Coordinates((0,  0)), Coordinates((1,  0)),
+                                                    Coordinates((-1, -1)), Coordinates((0, -1)), Coordinates((1, -1)),
+                                                    Coordinates((-1,  1)), Coordinates((0,  1)), Coordinates((1,  1))];
         self.relativ_coords_arr(origin, &AROUND)
     }
 }
