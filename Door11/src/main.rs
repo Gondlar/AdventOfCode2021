@@ -31,9 +31,9 @@ fn round(energylevel: &mut Matrix<u32>) -> u32 {
         }
     }
     while !will_flash.is_empty() {
-        let (x, y) = will_flash.pop().unwrap();
+        let flashing_coords = will_flash.pop().unwrap();
         flashes += 1;
-        for coords in energylevel.around_coords(x, y) {
+        for coords in energylevel.around_coords(flashing_coords) {
             energylevel[coords] += 1;
             if energylevel[coords] == MAX { // i.e. it is now 9
                 will_flash.push(coords);

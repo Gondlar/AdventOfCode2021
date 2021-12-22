@@ -1,13 +1,62 @@
 use std::iter::Iterator;
 
+#[derive(Copy,Clone)]
+pub struct Coordinates((usize, usize));
+#[derive(Copy,Clone)]
+pub struct RelativeCoordinates((isize, isize));
+
+impl std::ops::Deref for Coordinates {
+    type Target = (usize, usize);
+
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl std::ops::Deref for RelativeCoordinates {
+    type Target = (isize, isize);
+
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl Coordinates {
+    pub fn within(&self, l: usize, r: usize, b: usize, t: usize) -> bool {
+        let (x,y) = **self;
+        return x >= l && x <= r && y >= b && y <= t;
+    }
+}
+
+impl RelativeCoordinates {
+    pub fn within(&self, l: isize, r: isize, b: isize, t: isize) -> bool {
+        let (x,y) = **self;
+        return x >= l && x <= r && y >= b && y <= t;
+    }
+
+    pub fn to_coordinates(&self) -> Coordinates {
+        let (x,y) = **self;
+        assert!(x >= 0 && y >= 0);
+        return Coordinates((x as usize, y as usize));
+    }
+}
+
+impl std::ops::Add<RelativeCoordinates> for Coordinates {
+    type Output = RelativeCoordinates;
+
+    fn add(self, rhs: RelativeCoordinates) -> RelativeCoordinates {
+        let (x, y) = *self;
+        let (rel_x, rel_y) = *rhs;
+        assert!(x <= isize::MAX as usize && y <= isize::MAX as usize);
+        let sum_x = (x as isize)+rel_x;
+        let sum_y = (y as isize)+rel_y;
+        return RelativeCoordinates((sum_x, sum_y));
+    }
+}
+
+
+
 pub struct Matrix<A> {
     height: usize,
     width: usize,
     data: Vec<A>
 }
-
-pub type Coordinates = (usize, usize);
-pub type RelativeCoordinates = (isize, isize);
 
 impl<A> Matrix<A> {
     pub fn new_from_row(row: Vec<A>) -> Matrix<A> {
@@ -61,56 +110,41 @@ impl<'a, A> Matrix<A>
         let height = self.get_height();
         let width = self.get_width();
         Box::new(
-            (0..width).flat_map(move |x| (0..height).map(move |y| (x,y)))
+            (0..width).flat_map(move |x| (0..height).map(move |y| Coordinates((x,y))))
         )
     }
 
     pub fn get_all(&'a self, iter: &'a mut dyn Iterator<Item = Coordinates>) -> Box<dyn Iterator<Item = &A>+'a> {
-        Box::new(iter.map(|(x,y)| { self.get(x,y)} ))
+        Box::new(iter.map(|coords| { &self[coords] } ))
     }
     
-    pub fn relativ_coords(&self, x: usize, y: usize, neighbors: &'a Vec<RelativeCoordinates>) -> Box<dyn Iterator<Item = Coordinates>+'a> {
-        let width = self.get_width();
-        let height = self.get_height();
+    pub fn relativ_coords(&self, origin: Coordinates, neighbors: &'a Vec<RelativeCoordinates>) -> Box<dyn Iterator<Item = Coordinates>+'a> {
+        let width = self.get_width() as isize;
+        let height = self.get_height() as isize;
         Box::new(neighbors.iter()
-                          .filter(move |(rel_x, rel_y)| {
-                            let neighbor_x = (x as isize)+*rel_x;
-                            let neighbor_y = (y as isize)+*rel_y;
-                            return !(neighbor_x < 0 || neighbor_x >= width as isize || neighbor_y < 0 || neighbor_y >= height as isize);
-                          })
-                          .map(move |(rel_x, rel_y)| {
-                                let neighbor_x = ((x as isize)+*rel_x) as usize;
-                                let neighbor_y = ((y as isize)+*rel_y) as usize;
-                                return (neighbor_x, neighbor_y)
-                          }))
+                          .filter(move |rel| (origin + **rel).within(0, width-1, 0, height-1) )
+                          .map(move |rel| (origin + *rel).to_coordinates() ))
     }
 
-    fn relativ_coords_arr(&self, x: usize, y: usize, neighbors: &'a [RelativeCoordinates]) -> Box<dyn Iterator<Item = Coordinates>+'a> {
-        let width = self.get_width();
-        let height = self.get_height();
+    fn relativ_coords_arr(&self, origin: Coordinates, neighbors: &'a [RelativeCoordinates]) -> Box<dyn Iterator<Item = Coordinates>+'a> {
+        let width = self.get_width() as isize;
+        let height = self.get_height() as isize;
         Box::new(neighbors.iter()
-                          .filter(move |(rel_x, rel_y)| {
-                            let neighbor_x = (x as isize)+*rel_x;
-                            let neighbor_y = (y as isize)+*rel_y;
-                            return !(neighbor_x < 0 || neighbor_x >= width as isize || neighbor_y < 0 || neighbor_y >= height as isize);
-                          })
-                          .map(move |(rel_x, rel_y)| {
-                                let neighbor_x = ((x as isize)+*rel_x) as usize;
-                                let neighbor_y = ((y as isize)+*rel_y) as usize;
-                                return (neighbor_x, neighbor_y)
-                          }))
+                          .filter(move |rel| (origin + **rel).within(0, width-1, 0, height-1) )
+                          .map(move |rel| (origin + *rel).to_coordinates() ))
     }
 
-    pub fn neighbor_coords(&self, x: usize, y: usize) -> Box<dyn Iterator<Item = Coordinates>+'a> {
-        static NEIGHBORS : [(isize,isize); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
-        self.relativ_coords_arr(x, y, &NEIGHBORS)
+    pub fn neighbor_coords(&self, origin: Coordinates) -> Box<dyn Iterator<Item = Coordinates>+'a> {
+        static NEIGHBORS : [RelativeCoordinates; 4]
+            = [RelativeCoordinates((-1, 0)), RelativeCoordinates((1, 0)), RelativeCoordinates((0, -1)), RelativeCoordinates((0, 1))];
+        self.relativ_coords_arr(origin, &NEIGHBORS)
     }
 
-    pub fn around_coords(&self, x: usize, y: usize) -> Box<dyn Iterator<Item = Coordinates>+'a> {
-        static AROUND : [(isize,isize); 9] = [(-1,  0), (0,  0), (1,  0),
-                                              (-1, -1), (0, -1), (1, -1),
-                                              (-1,  1), (0,  1), (1,  1)];
-        self.relativ_coords_arr(x, y, &AROUND)
+    pub fn around_coords(&self, origin: Coordinates) -> Box<dyn Iterator<Item = Coordinates>+'a> {
+        static AROUND : [RelativeCoordinates; 9] = [RelativeCoordinates((-1,  0)), RelativeCoordinates((0,  0)), RelativeCoordinates((1,  0)),
+                                                    RelativeCoordinates((-1, -1)), RelativeCoordinates((0, -1)), RelativeCoordinates((1, -1)),
+                                                    RelativeCoordinates((-1,  1)), RelativeCoordinates((0,  1)), RelativeCoordinates((1,  1))];
+        self.relativ_coords_arr(origin, &AROUND)
     }
 }
 
@@ -130,14 +164,14 @@ impl<A> std::ops::Index<Coordinates> for Matrix<A> {
     type Output = A;
 
     fn index(&self, coords: Coordinates) -> &Self::Output {
-        let (x, y) = coords;
+        let (x, y) = *coords;
         return self.get(x, y);
     }
 }
 
 impl<A> std::ops::IndexMut<Coordinates> for Matrix<A> {
     fn index_mut(&mut self, coords: Coordinates) -> &mut Self::Output {
-        let (x, y) = coords;
+        let (x, y) = *coords;
         let index = self.calc_coordinates(x, y);
         return &mut self.data[index];
     }
