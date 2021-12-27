@@ -42,7 +42,7 @@ fn do_work<'b>(cursor : & mut dyn Iterator<Item = &str>) -> Result<(), &'b str> 
             }
             return (x,y);
         }).collect();
-        println!("{} dots remain after folding {:?} at {}", points.len(), direction, coordinate);
+        println!("{:>3} dots remain after folding {:?} at {}", points.len(), direction, coordinate);
     }
 
     // Determine size
